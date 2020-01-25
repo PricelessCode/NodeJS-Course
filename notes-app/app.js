@@ -25,8 +25,15 @@ yargs.command({
 yargs.command({
     command: 'remove',
     describe: 'Remove a new note',
-    handler: function() {
-        console.log('Removing the note!!!!!!!');
+    builder: {
+        title: {
+            describe: 'Note title',
+            demandOption: true,
+            type: 'string'
+        }
+    },
+    handler: function(argv) {
+        notes.removeNote(argv.title);
     }
 });
 
@@ -48,4 +55,3 @@ yargs.command({
 
 // This is neccessary to make things work!
 yargs.parse();
-yargs.version('1.1.0')
