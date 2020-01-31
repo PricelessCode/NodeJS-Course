@@ -1,18 +1,29 @@
 const fs = require('fs');
 const chalk = require('chalk');
 
-const getNotes = function() {
+
+const getNotes = () => {
     return 'Your notes...'
 }
 
-const addNote = function(title, body) {
+const readNote = (title) => {
     const notes = loadNotes();
-    const duplicateNotes = notes.filter(function(note) {
-        console.log(typeof note);
-        return note.title === title
-    });
+    const note = notes.find((note) => note.title === title);
+    if (note) {
+        console.log(chalk.bgGreen(title));
+        console.log(note.body);
+    } else {
+        console.log(chalk.bgRed("Note not found!"))
+    }
+}
 
-    if (duplicateNotes.length === 0) {
+const addNote = (title, body) => {
+    const notes = loadNotes();
+    const duplicateNote = notes.find((note) => note.title === title)
+
+    if (!duplicateNote) {
+        console.log(chalk.bgRed('Note title taken!'))
+    } else {
         notes.push({
             title: title,
             body: body
@@ -20,14 +31,12 @@ const addNote = function(title, body) {
 
         saveNotes(notes);
         console.log(chalk.bgGreen('New note added!'));
-    } else {
-        console.log(chalk.bgRed('Note title taken!'))
     }
 }
 
-const removeNote = function(title) {
+const removeNote = (title) => {
     const notes = loadNotes()
-    const notesToKeep = notes.filter(function(note) {
+    const notesToKeep = notes.filter((note) => {
         return title !== note.title
     });
 
@@ -40,12 +49,12 @@ const removeNote = function(title) {
 
 }
 
-const saveNotes = function(notes) {
+const saveNotes = (notes) => {
     const dataJSON = JSON.stringify(notes);
-    fs.writeFileSync('notes.json', dataJSON);
+    fs.writeFileSync('notes.json', dataJsON);
 }
 
-const loadNotes = function() {
+const loadNotes = () => {
     try {
         const dataBuffer = fs.readFileSync('notes.json');
         const dataJSON = dataBuffer.toString();
@@ -55,8 +64,24 @@ const loadNotes = function() {
     }
 }
 
+const listNotes = () => {
+    const notes = loadNotes();
+    console.log(chalk.inverse("List"));
+    notes.forEach(element => {
+        console.log(element);
+    });
+    yargs.command({
+
+    });
+
+}
+
+
+
 module.exports = {
     getNotes: getNotes,
     addNote: addNote,
-    removeNote: removeNote
+    removeNote: removeNote,
+    listNotes: listNotes,
+    readNote: readNote
 }
