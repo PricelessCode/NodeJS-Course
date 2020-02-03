@@ -2,6 +2,9 @@ const path = require('path');
 const express = require('express');
 const hbs = require('hbs'); // Need this for partial template
 
+const geocode = require('./utils/geocode');
+const forecast = require('./utils/forecast');
+
 
 const app = express();
 
@@ -40,9 +43,45 @@ app.get('/help', (req, res) => {
 });
 
 app.get('/weather', (req, res) => {
-    res.send({
-        location: 'Seoul'
+    if (!req.query.address) {
+        return res.send({
+            error: 'You must provide an address.'
+        })
+    }
+    // we have to provide a default value for lat, long, location else, it will crash when destructuring in the parameter
+    geocode(req.query.address, (error, { latitude, longitude, location } = {}) => {
+        if (error) {
+            return res.send({ error });
+        }
+        forecast(latitude, longitude, (error, forecastData) => {
+            if (error) {
+                return res.send({ error })
+            }
+            res.send({
+                forecast: forecastData,
+                location,
+                address: req.query.address
+            })
+        })
     });
+});
+
+app.get('/help/*', (req, res) => {
+    res.render('404', {
+        title: '404',
+        name: 'Seungho Lee',
+        errorMesage: 'Help article not found'
+    });
+});
+
+// This route for 404 has to come at last(after all routes set ups)
+// * means match anything that will not be matched above
+app.get('*', (req, res) => {
+    res.render('404', {
+        title: '404',
+        name: 'Seungho Lee',
+        errorMesage: 'Page not found'
+    })
 });
 
 app.listen(3000, () => {
