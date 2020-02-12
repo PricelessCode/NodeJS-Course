@@ -16,8 +16,13 @@
 // //             longitute: 0
 // //         }
 // //         return data;
-// //     }, 2000);
+// //     }, 2000); 
 // // }
+// // 
+// const data = geocode('Philadelphia'); --> This will return undefined.
+// console.log(data);     
+// 
+
 
 // const geocode = (address, callback) => {
 //     setTimeout(() => {
