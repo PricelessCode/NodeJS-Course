@@ -42,11 +42,13 @@ const userSchema = new mongoose.Schema({
 
 // Regular funciton needed here cause of binding (Arrow function X)
 userSchema.pre('save', async function(next) {
+    console.log(this)
     const user = this;
 
+    console.log(this);
     console.log('just before saving!')
 
-    next()
+    next(); // Call it when it's done
 });
 
 const User = mongoose.model('User', userSchema);
