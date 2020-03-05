@@ -1,9 +1,15 @@
 const express = require('express');
 const router = new express.Router();
+const auth = require('../middleware/auth')
 const Task = require('../models/task')
 
-router.post('/tasks', async(req, res) => {
-    const task = new Task(req.body);
+// Create a Task
+router.post('/tasks', auth, async(req, res) => {
+    const task = new Task({
+        ...req.body, // ES6 
+        owner: req.user._id
+    });
+
     try {
         await task.save();
         res.status(201).send(task);
@@ -12,20 +18,48 @@ router.post('/tasks', async(req, res) => {
     }
 });
 
-router.get('/tasks', async(req, res) => {
+// Get all tasks (with options)
+// GET /tasks?completed=true
+// GET /tasks?limit=10&skip=0
+// GET /tasks?sortBy=createdAt:asc / desc
+router.get('/tasks', auth, async(req, res) => {
+    const match = {}
+    const sort = {}
+
+    // query are passed as string here
+    // So req.query.completed type is string --> so below statements check if it exists or not
+    if (req.query.completed) {
+        match.completed = req.query.completed === 'true'
+    }
+
+    if (req.query.sortBy) {
+        const parts = req.query.sortBy.split(':');
+        sort[parts[0]] = parts[1] === 'desc' ? -1 : 1
+    }
+
     try {
-        const tasks = await Task.find({});
-        res.send(tasks);
+        // To populate it, you need to add Virtual in the user Schema. model/user.js file
+        await req.user.populate({
+            path: 'tasks',
+            match,
+            options: {
+                limit: parseInt(req.query.limit),
+                skip: parseInt(req.query.skip),
+                sort
+            }
+        }).execPopulate()
+        res.send(req.user.tasks);
     } catch (e) {
         res.status(500).send();
     }
 })
 
-router.get('/tasks/:id', async(req, res) => {
-    const _id = req.params.id;
+router.get('/tasks/:id', auth, async(req, res) => {
+    const _id = req.params.id
 
     try {
-        const task = await Task.findById(_id);
+        const task = await Task.findOne({ _id, owner: req.user._id })
+
         if (!task) {
             return res.status(404).send();
         }
@@ -35,7 +69,7 @@ router.get('/tasks/:id', async(req, res) => {
     }
 })
 
-router.patch('/tasks/:id', async(req, res) => {
+router.patch('/tasks/:id', auth, async(req, res) => {
     const requestedKeys = Object.keys(req.body)
     const allowedUpdates = ['description', 'completed'];
     const isValidOperation = requestedKeys.every((key) => allowedUpdates.includes(key));
@@ -45,11 +79,15 @@ router.patch('/tasks/:id', async(req, res) => {
     }
 
     try {
-        const task = await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+        const task = await Task.findOne({ _id: req.params.id, owner: req.user._id })
+
 
         if (!task) {
             return res.status(404).send();
         }
+
+        requestedKeys.forEach((update) => task[update] = req.body[update])
+        await task.save();
 
         res.send(task);
     } catch (e) {
@@ -57,9 +95,10 @@ router.patch('/tasks/:id', async(req, res) => {
     }
 })
 
-router.delete('/tasks/:id', async(req, res) => {
+router.delete('/tasks/:id', auth, async(req, res) => {
     try {
-        const task = await Task.findByIdAndDelete(req.params.id);
+        // FYI, findOneAndDelete Method does not raise an Error when the task is not found!
+        const task = await Task.findOneAndDelete({ _id: req.params.id, owner: req.user._id })
 
         if (!task) {
             res.status(404).send();
