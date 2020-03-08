@@ -1,6 +1,9 @@
 const express = require('express');
 const User = require('../models/user')
 const auth = require('../middleware/auth');
+const { sendWelcomeEmail, sendCancelationEmail } = require('../emails/account') // ES6 object destructuring
+const sharp = require('sharp')
+const multer = require('multer');
 const router = new express.Router();
 
 // Async and await can make codes work like synchronous when it's actually asynchronous.
@@ -10,6 +13,7 @@ router.post('/users', async(req, res) => {
     const user = new User(req.body);
     try {
         await user.save();
+        sendWelcomeEmail(user.email, user.name); // This is asynchronus but we don't have to use 'await' since the email doesn't have to be sent before other process below
         const token = await user.generateAuthToken();
         res.status(201).send({
             user,
@@ -56,7 +60,6 @@ router.post('/users/logoutAll', auth, async(req, res) => {
 
 // auth added to the parameter for this route. --> Using middleware
 router.get('/users/me', auth, async(req, res) => {
-    console.log(req)
     res.send(req.user);
 });
 
@@ -80,12 +83,64 @@ router.patch('/users/me', auth, async(req, res) => {
 
 router.delete('/users/me', auth, async(req, res) => {
     try {
-        await req.user.remove()
+        await req.user.remove();
+
         res.send(req.user);
     } catch (e) {
         res.status(500).send();
     }
 })
 
+// Profile image file settings
+const upload = multer({
+    // dest: 'avatars', --> This code used to make us save files in that folder.
+    limits: {
+        fileSize: 1000000
+    },
+    fileFilter(req, file, cb) {
+        if (!file.originalname.match(/\.(jpg|jpeg|png)$/)) {
+            return cb(new Error('Please upload an image'))
+        }
+
+        cb(undefined, true);
+
+    }
+});
+
+// Set Profile image
+router.post('/users/me/avatar', auth, upload.single('photoFile'), async(req, res) => {
+    const buffer = await sharp(req.file.buffer).resize({ width: 250, height: 250 }).png().toBuffer()
+    req.user.avatar = buffer
+    await req.user.save();
+    res.send();
+}, (error, req, res, next) => { // This function prevents user seeing HTML error codes when an error occurs in the upload.single('sentFile') middleware
+    res.status(400).send({
+        error: error.message
+    });
+})
+
+// Delete Profile Image
+router.delete('/users/me/avatar', auth, async(req, res) => {
+    req.user.avatar = undefined;
+    await req.user.save();
+    sendCancelationEmail(req.user.email, req.user.name)
+    res.send();
+});
+
+// Serving user profile image --> This can also be used public --> That's why we use id instead of auth
+router.get('/users/:id/avatar', async(req, res) => {
+    try {
+        const user = await User.findById(req.params.id)
+
+        if (!user || !user.avatar) {
+            throw new Error()
+        }
+
+        res.set('Content-Type', 'image/png') // --> To let the browser know we are sending image file so that it should open as an image
+        res.send(user.avatar);
+    } catch (e) {
+        res.status(404).send();
+    }
+})
 
 module.exports = router;
