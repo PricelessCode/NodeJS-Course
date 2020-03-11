@@ -7,7 +7,7 @@ const User = require('../models/user');
 const auth = async(req, res, next) => {
     try {
         const token = req.header('Authorization').replace('Bearer ', '')
-        const decoded = jwt.verify(token, process.env.JWT_SECRET) // 'secret' string has to be the same with the string used when creating token.
+        const decoded = jwt.verify(token, process.env.JWT_SECRET) // secret string has to be the same with the string used when creating token.
         const user = await User.findOne({ _id: decoded._id, 'tokens.token': token }) // String used for the key cause special character is used.
 
         if (!user) {
